@@ -86,8 +86,9 @@ module.exports = class verifier {
             for (let i = 0; i < retries; i++) {
                 console.log("solving recaptcha")
                 const res = await page.solveRecaptchas()
-                if (res.solved[0]?.isSolved && res.err==None) {
+                if (res.solved[0]?.isSolved) {
                     console.log('captchas result', res)
+                    break
                 } else {
                     console.log('no captchas found')
                     await delay(500)
