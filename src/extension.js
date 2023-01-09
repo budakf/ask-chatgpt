@@ -7,7 +7,7 @@ const vscode = require('vscode');
 const config = require('./config.js');
 const verifier = require('./verifier.js')
 const child_process = require('child_process');
-const basic_input = require('./basic_input.js');
+const basic_input = require('./utils.js');
 const chatgpt_provider = require('./chatgpt_provider.js');
 
 let is_authenticated = false
@@ -18,16 +18,25 @@ function activate(context) {
 
 	let disposable = vscode.commands.registerCommand('ask-chatgpt.ask', async () => {
 		const options= {
-			"login" : login,
-			"ask question to chatgpt":	basic_input.show_input_box
+			"login" : basic_input.show_login_box,
+			"ask question to chatgpt":	basic_input.show_question_box
 		};
 
 		const quickPick = vscode.window.createQuickPick();
 		quickPick.items = Object.keys(options).map(label => ({label}));
-		quickPick.onDidChangeSelection(selection => {
+		quickPick.onDidChangeSelection( async (selection) => {
 			if (selection[0]) {
 				if(selection[0].label == "login") {
-					options[selection[0].label]()
+					if(	config.session.email=="" && 
+						config.session.password=="") {
+						const result = await options[selection[0].label]()
+						if(result != null) {
+							await login()
+						}
+					}
+					else {
+						await login()
+					}
 				}
 				else if(selection[0].label == "ask question to chatgpt") {
 					options[selection[0].label]()
