@@ -1,4 +1,5 @@
 const delay = require('delay')
+const axios = require('axios')
 const config = require('./config.js')
 const provider = require('./provider.js')
 const puppeteer = require('puppeteer-extra')
@@ -20,11 +21,9 @@ puppeteer.use(
 puppeteer.use(stealth_plugin())
 
 module.exports = class chatgpt_provider extends provider {
-	constructor({_verifier,_url,_session}){
-		super(_verifier)
-		this.questions = []
+	constructor({_verifier, _questioner, _url}){
+		super(_verifier, _questioner)
 		this.url = _url
-		this.session = _session		
 	}
 
     authenticate = async () => {
@@ -33,21 +32,20 @@ module.exports = class chatgpt_provider extends provider {
 			await this.open_browser()
 			let page = await this.open_url()
 			await this.verifier.verify(page)
-			await this.handle_username_page(page)
-			this.tokens = await get_tokens(page)
-			await browser.close()
-			return tokens
+			await this.handle_login_page(page)
+			this.cookies = await this.get_cookies(page)
+			await this.questioner.prepare_header(this.cookies)
+			// await this.browser.close()
 		} catch (error) {
-			
+			// this.authenticate()
+			console.log("error:", error)
 		}
 	}
 
 	ask_question = async (question) => {
-		// send request using this.tokens
 		console.log("question:", question)
-		const answer = ""
-		this.questions.concat({question:answer})
-		return answer
+		await this.questioner.ask_question(question)
+		return "answer"
 	}
 
 	open_browser = async () => {
@@ -58,12 +56,12 @@ module.exports = class chatgpt_provider extends provider {
 			ignoreDefaultArgs: config.ignoring_args,
 			ignoreHTTPSErrors: true,
 			executablePath: executablePath(),
-			// product: config.product_name
 		})	
 	}
 
 	open_url = async () => {
 		const page = await this.browser.newPage()
+		page.deleteCookie()
 		page.setDefaultTimeout(config.timeout)
 		// await this.minimize_page(page)
 		await page.goto(this.url, {
@@ -82,7 +80,7 @@ module.exports = class chatgpt_provider extends provider {
 		})
 	}
 
-	handle_username_page = async(page) => {
+	handle_login_page = async(page) => {
 		console.log("waiting for login button")
 		await page.waitForSelector('#__next .btn-primary', { timeout: config.timeout })
 		await delay(config.delay_time)
@@ -94,7 +92,7 @@ module.exports = class chatgpt_provider extends provider {
 		await page.waitForSelector('#username', { timeout: config.timeout })
 	
 		await delay(config.delay_time)
-		await page.type('#username', this.session.email)
+		await page.type('#username', config.session.email)
 		console.log("entered username")
 
 		await delay(config.delay_time)
@@ -102,43 +100,29 @@ module.exports = class chatgpt_provider extends provider {
 		await this.verifier.solve_recaptcha(page)
 		console.log("solved recaptcha")
 
+		await delay(config.delay_time*20)
+		page.click('button[type="submit"]')
+
 		await delay(config.delay_time)
-		const frame = page.mainFrame()
-		const submit = await page.waitForSelector('button[type="submit"]', {
-		  timeout: config.timeout
-		})
-	
-		await frame.focus('button[type="submit"]')
-		await submit.focus()
-		await submit.click()
+		await page.waitForSelector('#password', { timeout: config.timeout })
+		await page.type('#password', config.session.password, { delay: 10 })
+		page.click('button[type="submit"]')
 	}
 
-	get_tokens = async(page) => {
-		const page_cookies = await page.cookies()
+	get_cookies = async(page) => {
+		await delay(config.delay_time*5)
+		const page_cookies = await page.cookies(config.urls.login_page)
 		const cookies = page_cookies.reduce(
-		  (map, cookie) => ({ ...map, [cookie.name]: cookie }),
-		  {}
+			(map, cookie) => ({ ...map, [cookie.name]: cookie }),
+			{}
 		)
-		console.log("cookies:", cookies)
-		return {
-			clearanceToken: cookies['cf_clearance']?.value,
-			sessionToken: cookies['__Secure-next-auth.session-token']?.value,
-		}
+		console.log(cookies)
+
+		console.log(cookies['cf_clearance'].value)
+		console.log(cookies['__Secure-next-auth.session-token'].value)
+		console.log(cookies)
+
+		return cookies
 	}
 }
 
-// const authenticate_to_chatgpt = async (session) => {
-
-	// await page.waitForSelector('#password', { timeout: config.timeout })
-	// await page.type('#password', session.password, { delay: 10 })
-	// submitP = () => page.click('button[type="submit"]')
-
-	// await page.waitForNavigation({
-	// 	waitUntil: 'networkidle2',
-	// 	timeout: timeoutMs
-	// })
-
-	// submitP()
-
-	//await browser.close()
-// }

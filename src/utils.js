@@ -38,13 +38,12 @@ async function show_login_box() {
 				email,
 				password
 			}
-			vscode.window.showInformationMessage(`session informaiton saved: ${config.session}`)
+			vscode.window.showInformationMessage(`session information saved`)
 		}
 	}
 	else {
 		vscode.window.showInformationMessage(`please write valid email and password`)
 	}
-	return null 
 }
 const validate_email = (email) => {
 	return String(email)

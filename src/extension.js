@@ -1,16 +1,22 @@
 
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
-const uuid = require('uuid');
-const vscode = require('vscode');
-const config = require('./config.js');
+const fs = require('fs')
+const os = require('os')
+const path = require('path')
+const uuid = require('uuid')
+const vscode = require('vscode')
+const config = require('./config.js')
+const basic_input = require('./utils.js')
 const verifier = require('./verifier.js')
-const child_process = require('child_process');
-const basic_input = require('./utils.js');
-const chatgpt_provider = require('./chatgpt_provider.js');
+const questioner = require('./questioner.js')
+const child_process = require('child_process')
+const chatgpt_provider = require('./chatgpt_provider.js')
 
 let is_authenticated = false
+let _provider = new chatgpt_provider({
+	_verifier: new verifier(),
+	_questioner: new questioner(),
+	_url: config.urls.login_page
+})
 
 function activate(context) {
 	console.log('Congratulations, your extension "ask-chatgpt" is now active!');
@@ -18,24 +24,22 @@ function activate(context) {
 
 	let disposable = vscode.commands.registerCommand('ask-chatgpt.ask', async () => {
 		const options= {
-			"login" : basic_input.show_login_box,
-			"ask question to chatgpt":	basic_input.show_question_box
+			"authenticate to chatgpt": basic_input.show_login_box,
+			"ask question to chatgpt": basic_input.show_question_box
 		};
 
 		const quickPick = vscode.window.createQuickPick();
 		quickPick.items = Object.keys(options).map(label => ({label}));
 		quickPick.onDidChangeSelection( async (selection) => {
 			if (selection[0]) {
-				if(selection[0].label == "login") {
+				if(selection[0].label == "authenticate to chatgpt") {
 					if(	config.session.email=="" && 
-						config.session.password=="") {
-						const result = await options[selection[0].label]()
-						if(result != null) {
-							await login()
-						}
+						config.session.password=="" ) {
+						await options[selection[0].label]()
 					}
-					else {
-						await login()
+					if( config.session.email != "" &&
+						config.session.password != "" ) {
+						await authenticate_to_chatgpt()
 					}
 				}
 				else if(selection[0].label == "ask question to chatgpt") {
@@ -57,20 +61,23 @@ function activate(context) {
 	context.subscriptions.push(disposable);
 }
 
-const login = async () => {
-	if(!is_authenticated)
-	{
-		let _provider = new chatgpt_provider({
-			_verifier: new verifier(),
-			_url: config.urls.login_page,
-			_session: config.session
-		})
+const authenticate_to_chatgpt = async () => {
+	if(!is_authenticated) {
 		await _provider.authenticate()
+		is_authenticated = true
+	}
+	else {
+		vscode.window.showInformationMessage("already authenticated")
 	}
 }
 
 const ask_question = async (question) => {
-	//await _provider.ask_question(question)
+	if(is_authenticated) {
+		await _provider.ask_question(question)
+	}
+	else {
+		vscode.window.showInformationMessage("first try to authenticate")
+	}
 }
 
 const show_result = (question, answer) => {
