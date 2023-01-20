@@ -34,7 +34,8 @@ module.exports = class chatgpt_provider extends provider {
 			await this.verifier.verify(page)
 			await this.handle_login_page(page)
 			this.cookies = await this.get_cookies(page)
-			await this.questioner.prepare_header(this.cookies)
+			await this.questioner.set_cookie(this.cookies)
+			await this.questioner.set_page(page)
 			// await this.browser.close()
 		} catch (error) {
 			// this.authenticate()
@@ -116,11 +117,11 @@ module.exports = class chatgpt_provider extends provider {
 			(map, cookie) => ({ ...map, [cookie.name]: cookie }),
 			{}
 		)
-		console.log(cookies)
+		// console.log(cookies)
 
-		console.log(cookies['cf_clearance'].value)
-		console.log(cookies['__Secure-next-auth.session-token'].value)
-		console.log(cookies)
+		// console.log(cookies['cf_clearance'].value)
+		// console.log(cookies['__Secure-next-auth.session-token'].value)
+		// console.log(cookies)
 
 		return cookies
 	}

@@ -43,14 +43,14 @@ function activate(context) {
 					}
 				}
 				else if(selection[0].label == "ask question to chatgpt") {
-					options[selection[0].label]()
-						.then((question) => { 
-					question ? ask_question(question).then((answer) => {
-						show_result(question, answer)
-					}) :
-					vscode.window.showInformationMessage("Please ask a question")
-				})
-				.catch(console.error);
+					options[selection[0].label]().then((question) => { 
+						question ? ask_question(question).then((answer) => {
+							if(answer != null) {
+								show_result(question, answer)
+							}
+						}) :
+						vscode.window.showInformationMessage("Please ask a question")
+					}).catch(console.error);
 				}
 			}
 		});
@@ -73,10 +73,12 @@ const authenticate_to_chatgpt = async () => {
 
 const ask_question = async (question) => {
 	if(is_authenticated) {
-		await _provider.ask_question(question)
+		const answer = await _provider.ask_question(question)
+		return answer
 	}
 	else {
 		vscode.window.showInformationMessage("first try to authenticate")
+		return null
 	}
 }
 
@@ -88,7 +90,7 @@ const show_result = (question, answer) => {
 	fs.writeFileSync(fd, result, {flag:"a+"})
 	fs.closeSync(fd)
 	child_process.spawn("code", [uniqueFileName]);
-} 
+}
 
 const create_unique_file = () => {
 	const baseDir = os.tmpdir()
